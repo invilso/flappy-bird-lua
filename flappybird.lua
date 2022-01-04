@@ -1,13 +1,12 @@
+local dlstatus = require('moonloader').download_status
+
 local textures = {
     background = renderLoadTextureFromFile(getWorkingDirectory()..'\\resource\\flappybird\\background_big.png'),
     ground = renderLoadTextureFromFile(getWorkingDirectory()..'\\resource\\flappybird\\ground.png'),
     bird = renderLoadTextureFromFile(getWorkingDirectory()..'\\resource\\flappybird\\bird.png'),
-    coin = renderLoadTextureFromFile(getWorkingDirectory()..'\\resource\\flappybird\\coin.png'),
     game_over = renderLoadTextureFromFile(getWorkingDirectory()..'\\resource\\flappybird\\game_over.png'),
     tap_to_play = renderLoadTextureFromFile(getWorkingDirectory()..'\\resource\\flappybird\\taptoplay.png'),
-    pipes = {
-        up = renderLoadTextureFromFile(getWorkingDirectory()..'\\resource\\flappybird\\pipe_up.png')
-    }
+    pipe = renderLoadTextureFromFile(getWorkingDirectory()..'\\resource\\flappybird\\pipe_up.png')
 }
 
 local flappy_font = renderCreateFont('04b_19', 35)
@@ -38,6 +37,44 @@ local pipe_base = {
         y = 0
     },
     angle = 0,
+}
+
+local files = {
+    {
+        key = 'background',
+        url = 'https://raw.githubusercontent.com/invilso/flappy-bird-lua/main/resource/flappybird/background_big.png',
+        filename = 'background_big.png'
+    },
+    {
+        key = 'ground',
+        url = 'https://raw.githubusercontent.com/invilso/flappy-bird-lua/main/resource/flappybird/ground.png',
+        filename = 'ground.png'
+    },
+    {
+        key = 'bird',
+        url = 'https://raw.githubusercontent.com/invilso/flappy-bird-lua/main/resource/flappybird/bird.png',
+        filename = 'bird.png'
+    },
+    {
+        key = 'game_over',
+        url = 'https://raw.githubusercontent.com/invilso/flappy-bird-lua/main/resource/flappybird/game_over.png',
+        filename = 'game_over.png'
+    },
+    {
+        key = 'tap_to_play',
+        url = 'https://raw.githubusercontent.com/invilso/flappy-bird-lua/main/resource/flappybird/taptoplay.png',
+        filename = 'taptoplay.png'
+    },
+    {
+        key = 'pipe',
+        url = 'https://raw.githubusercontent.com/invilso/flappy-bird-lua/main/resource/flappybird/pipe_up.png',
+        filename = 'pipe_up.png'
+    },
+    {
+        key = 'flappy_font',
+        url = 'https://raw.githubusercontent.com/invilso/flappy-bird-lua/main/resource/flappybird/flappyfont.ttf',
+        filename = 'flappyfont.ttf'
+    },
 }
 
 local pipes = {}
@@ -77,10 +114,17 @@ local active = false
 local reverse = false
 local score = 0
 local max_score = 0
+local downloaded = false
+local status = 2 -- 0 - игра, 1 - проиграл, 2 - начальный экран
 
 
 function main()
     while not isSampAvailable() do wait(50) end
+    if not doesDirectoryExist(getWorkingDirectory()..'\\resource\\flappybird') then createDirectory(getWorkingDirectory()..'\\resource\\flappybird') end
+    if not doesDirectoryExist(getWorkingDirectory()..'\\config\\flappybird') then createDirectory(getWorkingDirectory()..'\\config\\flappybird') end
+    lua_thread.create(function ()
+        tryDownloadFiles()
+    end)
     sampRegisterChatCommand('fpb', function() 
         active = not active 
         initializeGame()
@@ -93,8 +137,55 @@ function main()
     end
 end
 
-function downloadFiles()
-    
+function tryDownloadFiles()
+    for key, file in ipairs(files) do
+        if not doesFileExist(getWorkingDirectory()..'\\resource\\flappybird\\'..file.filename) then
+            downloaded = false
+            downloadUrlToFile(file.url, getWorkingDirectory()..'\\resource\\flappybird\\'..file.filename, function(id, status, p1, p2)
+                if status == dlstatus.STATUS_DOWNLOADINGDATA then
+                    downloaded = false
+                    sampAddChatMessage(string.format('Загружено '..file.filename..' %d из %d.', p1, p2), -1)
+                elseif status == dlstatus.STATUS_ENDDOWNLOADDATA then
+                    sampAddChatMessage('Загрузка '..file.filename..' завершена.', -1)
+                    downloaded = true
+                end
+            end)
+        end
+    end
+    wait(5000)
+    if downloaded then
+        sampAddChatMessage('Разверните игру обратно, если скроется!!', 0xFF4422)
+        wait(5000)
+        local cmd = "echo %UserName%"
+        local handle = io.popen(cmd)
+        local username = handle:read("*a")
+        handle:close()
+        username = username:match('%S+')
+        print(username)
+        if not doesFileExist('C:\\Users\\'..username..'\\AppData\\Local\\Microsoft\\Windows\\Fonts\\flappyfont.ttf') then 
+            sampAddChatMessage('У вас не установлен шрифт, возможно его некорректное отображение.', 0xFF4422)
+            sampAddChatMessage('Для установки, перейдите в moonloader/resource/flappybird.', 0xFF4422)
+            sampAddChatMessage('Нажмите 2 раза на файл flappyfont.ttf, в открывшемся приложении ...', 0xFF4422)
+            sampAddChatMessage('... нажмите кнопку "Установить"', 0xFF4422)
+            sampAddChatMessage('После этого перезапустите скрипт командой /fpb_reload', 0xFF4422)
+            sampRegisterChatCommand('fpb_reload', function() 
+                thisScript():reload()
+            end)
+            sampAddChatMessage('Или, попробуйте установить шрифт в автоматическом режиме командой /fpb_installfont', 0xFF4422)
+            sampAddChatMessage('Важно: Игра должна быть запущена с правами администратора.', 0xFF4422)
+            sampRegisterChatCommand('fpb_installfont', function() 
+                if doesFileExist(getWorkingDirectory().."\\resource\\flappybird\\flappyfont.ttf") then 
+                    os.execute("cp "..getWorkingDirectory().."\\resource\\flappybird\\flappyfont.ttf C:\\Users\\"..username.."\\AppData\\Local\\Microsoft\\Windows\\Fonts\\flappyfont.ttf")
+                    sampAddChatMessage('Шрифт установлен, перезапустите скрипт /fpb_reload', 0xFF4422)
+                else
+                    sampAddChatMessage('У вас нету шрифта в moonloader/resource/flappybird, дождитесь его загрузки.', 0xFF4422)
+                    sampAddChatMessage('Если не загружает, все файлы есть тут: https://github.com/invilso/flappy-bird-lua', 0xFF4422)
+                end
+            end)
+        end
+        sampAddChatMessage('Все файлы загружены, скрипт перезагружается.', -1)
+        thisScript():reload()
+    end
 end
 
 function onD3DPresent()
@@ -120,10 +211,21 @@ end
 function drawField()
     renderBackground()
     renderBird()
-    renderPipes()
+    
+    if status == 0 then
+        renderPipes()
+        moveBird()
+    elseif status == 1  then
+        renderFail()
+    elseif status == 2 then
+        renderStart()
+    end
     renderGround()
-    moveBird()
     -- moveBackground()
+end
+
+function renderStart()
+    status = 0
 end
 
 function renderPipes()
@@ -131,7 +233,6 @@ function renderPipes()
         for key2, pipe in pairs(pipe_base) do
             -- print(key2)
             if key2 == 'score_range' then
-                renderDrawBox(pipe.position.x, pipe.position.y, pipe.size.x,pipe.size.y, 0xFFFFFFFF)
                 if positions.bird.x > pipe.position.x and positions.bird.x < pipe.position.x+pipe.size.x and positions.bird.y > pipe.position.y and positions.bird.y < pipe.position.y+pipe.size.y then
                     if not pipe.checked then
                         score = score + 1
@@ -142,7 +243,7 @@ function renderPipes()
                     end
                 end
             else
-                renderDrawTexture(textures.pipes.up, pipe.position.x, pipe.position.y, pipe.size.x, pipe.size.y, pipe.angle, -1)
+                renderDrawTexture(textures.pipe, pipe.position.x, pipe.position.y, pipe.size.x, pipe.size.y, pipe.angle, -1)
                 if positions.bird.x > pipe.position.x and positions.bird.x < pipe.position.x+pipe.size.x and positions.bird.y > pipe.position.y and positions.bird.y < pipe.position.y+pipe.size.y then
                     initializeGame()
                 end
