@@ -10,8 +10,8 @@ local textures = {
     }
 }
 
--- local flappy_font = renderCreateFont('04b_19', 35)
-local flappy_font = renderCreateFontFromFile(getWorkingDirectory()..'\\resource\\flappybird\\flappyfont.ttf', 35)
+local flappy_font = renderCreateFont('04b_19', 35)
+-- local flappy_font = renderCreateFontFromFile(getWorkingDirectory()..'\\resource\\flappybird\\flappyfont.ttf', 35)
 
 local positions = {
     background = {
@@ -75,6 +75,8 @@ local move = {
 
 local active = false
 local reverse = false
+local score = 0
+local max_score = 0
 
 
 function main()
@@ -91,12 +93,16 @@ function main()
     end
 end
 
+function downloadFiles()
+    
+end
+
 function onD3DPresent()
     if active then
         if isSampAvailable() then
             if not isPauseMenuActive() then
                 drawField()
-                renderFontDrawText(flappy_font, '0123456ABCDE',(positions.background.x + (sizes.background.x*sizes.multipler)) / 2,(positions.background.y + (sizes.background.y*sizes.multipler)) / 4,-1)
+                renderFontDrawText(flappy_font, score..'/'..max_score, (positions.background.x + (sizes.background.x*sizes.multipler)) / 2,(positions.background.y + (sizes.background.y*sizes.multipler)) / 4,-1)
             end
         end
     end
@@ -107,6 +113,7 @@ function initializeGame()
     positions.bird.y = (positions.background.y + (sizes.background.y*sizes.multipler)) / 2
     move.bird.speed_down = 0
     move.pipes.speed_multipler = 1
+    score = 0
     pipes = {}
 end
 
@@ -122,12 +129,21 @@ end
 function renderPipes()
     for key, pipe_base in ipairs(pipes) do
         for key2, pipe in pairs(pipe_base) do
-            print(key2)
+            -- print(key2)
             if key2 == 'score_range' then
-                renderDrawBox(pipe.position.x, pipe.position.y, pipe.size.x,pipe.size.y,0xFFFFFFFF)
+                renderDrawBox(pipe.position.x, pipe.position.y, pipe.size.x,pipe.size.y, 0xFFFFFFFF)
+                if positions.bird.x > pipe.position.x and positions.bird.x < pipe.position.x+pipe.size.x and positions.bird.y > pipe.position.y and positions.bird.y < pipe.position.y+pipe.size.y then
+                    if not pipe.checked then
+                        score = score + 1
+                        if score > max_score then
+                            max_score = score
+                        end
+                        pipe.checked = true
+                    end
+                end
             else
                 renderDrawTexture(textures.pipes.up, pipe.position.x, pipe.position.y, pipe.size.x, pipe.size.y, pipe.angle, -1)
-                if positions.bird.x > positions.ground.x and positions.bird.x < positions.ground.x+(sizes.ground.x*sizes.multipler) and positions.bird.y > positions.ground.y and positions.bird.y < positions.ground.y+(sizes.ground.y*sizes.multipler) then
+                if positions.bird.x > pipe.position.x and positions.bird.x < pipe.position.x+pipe.size.x and positions.bird.y > pipe.position.y and positions.bird.y < pipe.position.y+pipe.size.y then
                     initializeGame()
                 end
             end
@@ -179,7 +195,8 @@ function createPipe()
         position = {
             x = pipe_up.position.x,
             y = (pipe_up.position.y + pipe_up.size.y)
-        }
+        },
+        checked = false
     }
     local pipe = {
         up = pipe_up,
@@ -193,7 +210,7 @@ function tryCreatePipe()
     if #pipes == 0 then
         createPipe()
     else
-        if pipes[#pipes].up.position.x + (sizes.pipe.x*sizes.multipler*4+math.random(0.5, 0.9)) < (positions.background.x + (sizes.background.x*sizes.multipler)) then
+        if pipes[#pipes].up.position.x + (sizes.pipe.x*sizes.multipler*(4+math.random(0.5, 1.8))) < (positions.background.x + (sizes.background.x*sizes.multipler)) then
             createPipe()
         end
     end
